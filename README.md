@@ -90,28 +90,6 @@ As duas produzem `.wav` idênticos em estrutura. Use a que for mais conveniente 
  
 ---
  
-## Hospedagem (para quem for publicar o site)
- 
-O site é **estático**: são apenas dois arquivos, e ele pode ser hospedado de graça em GitHub Pages, Netlify, Cloudflare Pages, ou servido localmente.
- 
-Os arquivos são:
- 
-- `index.html` — o site inteiro (interface + lógica de conversão).
-- `coi-serviceworker.js` — **opcional, mas recomendado.** Habilita a conversão usando vários núcleos do processador (bem mais rápida) em hospedagens que não permitem configurar cabeçalhos HTTP, como o GitHub Pages.
-**Regra importante:** coloque os **dois arquivos na raiz** do repositório, lado a lado. Sem o `coi-serviceworker.js`, o site funciona igual, só que mais devagar (um núcleo só).
- 
-### Publicar no GitHub Pages
- 
-1. Crie um repositório **público** no GitHub (nome em minúsculas, sem espaços).
-2. Envie `index.html` e `coi-serviceworker.js` para a **raiz** do repositório.
-3. Vá em **Settings → Pages**.
-4. Em **Source**, escolha **Deploy from a branch**, selecione a branch **main** e a pasta **/ (root)**, e clique em **Save**.
-5. Aguarde alguns minutos. O endereço do site aparece no formato `https://SEU-USUARIO.github.io/NOME-DO-REPO/`.
-Na primeira visita, a página pode piscar e recarregar uma vez — é o service worker se instalando para ligar o modo multinúcleo. É normal.
- 
-Para confirmar que o modo multinúcleo está ativo: abra o **Console** das ferramentas de desenvolvedor e digite `crossOriginIsolated`. Se responder `true`, está tudo certo. Se responder `false`, provavelmente o `coi-serviceworker.js` não está na raiz junto do `index.html`.
- 
----
  
 ## Solução de problemas
  
