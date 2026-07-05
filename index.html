@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conversor Libras → WAV · Canal 15 do DCP · 100% local</title>
+<meta name="description" content="Converta o vídeo do(a) intérprete de Libras em um WAV para o canal 15 do DCP (ISDCF Doc13). Tudo acontece no seu navegador: nada é enviado para nenhum servidor.">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=Spline+Sans+Mono:wght@400;500&display=swap" rel="stylesheet" crossorigin="anonymous">
+<style>
+  :root {
+    --bg: #14171d;          /* cabine de projeção */
+    --panel: #1c2129;
+    --panel-2: #232a34;
+    --line: #313a47;
+    --ink: #e9ecf1;
+    --muted: #97a0af;
+    --amber: #f2b441;       /* lâmpada do projetor */
+    --amber-ink: #241a05;
+    --ok: #7fd99a;
+    --bad: #ff7b72;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Instrument Sans", system-ui, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 20px 64px; }
+
+  /* ---------- Cabeçalho ---------- */
+  h1 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800; font-size: clamp(34px, 6vw, 54px);
+    line-height: 1.02; margin: 0 0 6px; letter-spacing: -0.02em;
+  }
+  .subtitle {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 600; font-size: clamp(19px, 3.2vw, 26px);
+    line-height: 1.15; margin: 0 0 16px; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .subtitle .arrow, h1 .arrow { color: var(--amber); }
+  .lede { color: var(--muted); max-width: 620px; margin: 0 0 12px; }
+  .lede a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--amber); text-underline-offset: 3px; }
+  .lede a:hover { color: var(--amber); }
+  .fallback { color: var(--muted); font-size: 14.5px; margin: 0 0 26px; }
+  .fallback a { color: var(--amber); text-decoration: none; }
+  .fallback a:hover { text-decoration: underline; }
+
+  /* ---------- Nota de privacidade (discreta, no rodapé) ---------- */
+  .privacy-note {
+    display: flex; gap: 12px; align-items: flex-start;
+    border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 13px 16px; margin: 32px 0 0;
+    color: var(--muted);
+  }
+  .privacy-note .lock { flex: none; width: 20px; height: 20px; margin-top: 1px; color: var(--muted); }
+  .privacy-note p { margin: 0; font-size: 13.5px; line-height: 1.5; }
+  .privacy-note strong { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Alternância de modo ---------- */
+  .modes { display: flex; gap: 8px; margin-bottom: 22px; }
+  .modes button {
+    font: inherit; font-weight: 600; font-size: 14.5px;
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 8px 18px; cursor: pointer;
+  }
+  .modes button[aria-pressed="true"] {
+    background: var(--panel-2); color: var(--ink); border-color: #4a5565;
+  }
+  .modes button:focus-visible, .drop:focus-visible, .btn:focus-visible, a:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--amber); outline-offset: 2px;
+  }
+
+  /* ---------- Cartões / passos ---------- */
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 22px; margin-bottom: 18px;
+  }
+  .step-label {
+    font-family: "Spline Sans Mono", monospace; font-size: 12px;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+    margin: 0 0 12px;
+  }
+
+  /* ---------- Área de soltar ---------- */
+  .drop {
+    border: 2px dashed #46516180; border-radius: var(--radius);
+    padding: 44px 20px; text-align: center; cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .drop.over, .drop:hover { border-color: var(--amber); background: #f2b44110; }
+  .drop .big { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; font-size: 20px; display: block; margin-bottom: 6px; }
+  .drop .hint { color: var(--muted); font-size: 14.5px; }
+  .drop input { display: none; }
+
+  /* ---------- Preview ---------- */
+  .prevRow { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .prevFrame {
+    flex: none; border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; background: #000; line-height: 0;
+  }
+  .prevFrame canvas { width: 210px; height: 280px; display: block; }
+  .prevMeta { flex: 1 1 260px; min-width: 240px; }
+  .mono {
+    font-family: "Spline Sans Mono", monospace; font-size: 13.5px;
+    color: var(--muted); white-space: pre-line; margin: 0 0 12px;
+  }
+  .warn {
+    background: #f2b4411a; border: 1px solid #f2b44155; border-radius: 10px;
+    padding: 12px 14px; font-size: 14.5px; color: #f6d290;
+  }
+
+  /* ---------- Botões ---------- */
+  .btn {
+    font: inherit; font-weight: 600; font-size: 16px;
+    background: var(--amber); color: var(--amber-ink);
+    border: none; border-radius: 10px; padding: 13px 26px; cursor: pointer;
+  }
+  .btn:hover { filter: brightness(1.07); }
+  .btn:disabled { opacity: .55; cursor: wait; }
+  .btn.warnBtn { background: #e08a3c; }
+  .btn.ghost {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line); font-weight: 500; font-size: 14.5px; padding: 10px 18px;
+  }
+  .btn.ghost:hover { color: var(--ink); }
+  .btnRow { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .engineNote { color: var(--muted); font-size: 13.5px; margin: 10px 0 0; min-height: 1.2em; }
+
+  /* ---------- Faixa de blocos (assinatura) ---------- */
+  .strip {
+    position: relative; height: 34px; border-radius: 8px;
+    background-color: var(--panel-2); border: 1px solid var(--line);
+    overflow: hidden;
+  }
+  .stripFill {
+    position: absolute; inset: 0 auto 0 0; width: 0%;
+    background: linear-gradient(180deg, #f7c765, #e9a52f);
+    transition: width .25s linear;
+  }
+  .stripCaption {
+    font-family: "Spline Sans Mono", monospace; font-size: 12.5px;
+    color: var(--muted); margin-top: 8px;
+  }
+  .statusLine { font-size: 14.5px; color: var(--ink); margin: 14px 0 10px; min-height: 1.3em; }
+
+  /* ---------- Resultado / relatório ---------- */
+  .resultBox { border-left: 4px solid var(--ok); }
+  .resultBox h2 { font-family: "Bricolage Grotesque", sans-serif; font-size: 21px; margin: 0 0 8px; }
+  .summaryText { color: var(--muted); font-size: 15px; margin: 0 0 16px; }
+  .dl {
+    display: inline-block; background: var(--amber); color: var(--amber-ink);
+    text-decoration: none; font-weight: 600; border-radius: 10px; padding: 13px 26px;
+  }
+  .dl:hover { filter: brightness(1.07); }
+  ul.report { list-style: none; margin: 18px 0 0; padding: 0; font-size: 14.5px; }
+  ul.report li { padding: 3px 0; }
+  ul.report li.ok { color: var(--ok); }
+  ul.report li.bad { color: var(--bad); }
+  ul.report li.summary { margin-top: 8px; font-weight: 600; }
+
+  /* ---------- Erros ---------- */
+  .errBox { border-left: 4px solid var(--bad); }
+  .errBox p { margin: 0; color: #ffb3ad; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  pre {
+    font-family: "Spline Sans Mono", monospace; font-size: 12px;
+    background: #10131a; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; overflow-x: auto; color: var(--muted); max-height: 220px;
+  }
+
+  /* ---------- Rodapé ---------- */
+  footer { margin-top: 40px; color: var(--muted); font-size: 13.5px; }
+  footer a { color: var(--amber); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  footer p { margin: 6px 0; }
+
+  @media (max-width: 560px) {
+    .wrap { padding: 28px 14px 48px; }
+    .card { padding: 16px; }
+    .prevFrame canvas { width: 165px; height: 220px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>pyBRAS Web</h1>
+    <p class="subtitle">Vídeo em Libras <span class="arrow">→</span> WAV do Canal&nbsp;15</p>
+    <p class="lede">Solte o vídeo do(a) intérprete e receba o <strong>.wav</strong> pronto para o canal 15 de áudio do DCP — <a href="https://github.com/shuri-IT/pyBRAS-DCP-converter" rel="noopener" target="_blank">o mesmo resultado do <code>pyBRAS</code>, sem instalar nada</a>.</p>
+    <p class="fallback">Dificuldades utilizando essa ferramenta web? Tente a <a href="https://github.com/shuri-IT/pyBRAS-DCP-converter" rel="noopener" target="_blank">ferramenta em Python</a>.</p>
+  </header>
+
+  <nav class="modes" aria-label="Modo">
+    <button id="modeConvert" aria-pressed="true">Converter vídeo</button>
+    <button id="modeCheck" aria-pressed="false">Verificar um .wav pronto</button>
+  </nav>
+
+  <!-- ================= CONVERSOR ================= -->
+  <main id="panelConvert">
+
+    <section class="card">
+      <p class="step-label">1 · Vídeo de origem</p>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Selecionar ou soltar o arquivo de vídeo">
+        <span class="big">Solte o vídeo aqui</span>
+        <span class="hint">ou toque para escolher um arquivo · .mp4 e .mov funcionam bem · mínimo de 2 segundos</span>
+        <input type="file" id="fileInput" accept="video/*,.mp4,.mov,.mkv,.webm,.avi,.mxf,.m4v">
+      </div>
+      <button class="btn ghost" id="browseBtn" hidden>Escolher arquivo</button>
+    </section>
+
+    <section class="card" id="stepPreview" hidden>
+      <p class="step-label">2 · Enquadramento (como vai aparecer no cinema)</p>
+      <div class="prevRow">
+        <div class="prevFrame"><canvas id="prevCanvas" width="480" height="640"></canvas></div>
+        <div class="prevMeta">
+          <p class="mono" id="metaInfo"></p>
+          <div class="warn" id="warnBox" hidden><span id="warnText"></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card" id="stepConvert" hidden>
+      <p class="step-label">3 · Conversão</p>
+      <div class="btnRow">
+        <button class="btn" id="btnConvert">Converter para .wav</button>
+        <button class="btn ghost" id="btnReset">Escolher outro vídeo</button>
+      </div>
+      <p class="engineNote" id="engineNote"></p>
+
+      <div id="progressWrap" hidden>
+        <p class="statusLine" id="statusLine" aria-live="polite"></p>
+        <div class="strip" id="strip" role="progressbar" aria-label="Progresso da conversão">
+          <div class="stripFill" id="stripFill"></div>
+        </div>
+        <p class="stripCaption" id="stripCaption" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="card resultBox" id="resultBox" hidden>
+      <h2>Pronto ✓</h2>
+      <p class="summaryText" id="resultSummary"></p>
+      <a class="dl" id="dlLink" href="#">Baixar .wav</a>
+      <ul class="report" id="valReport"></ul>
+    </section>
+
+    <section class="card errBox" id="errBox" hidden>
+      <p id="errText"></p>
+      <details id="logDetails" hidden>
+        <summary>Registro técnico (para reportar um problema)</summary>
+        <pre id="logPre"></pre>
+      </details>
+    </section>
+
+  </main>
+
+  <!-- ================= VERIFICADOR ================= -->
+  <main id="panelCheck" hidden>
+    <section class="card">
+      <p class="step-label">Verificar um .wav já pronto (equivale ao --check)</p>
+      <div class="drop" id="dropW" tabindex="0" role="button" aria-label="Selecionar ou soltar o arquivo .wav">
+        <span class="big">Solte o .wav aqui</span>
+        <span class="hint">Confere se o arquivo segue a estrutura de blocos da ISDCF Doc13 — também 100% local</span>
+        <input type="file" id="wavInput" accept=".wav,audio/wav,audio/x-wav">
+      </div>
+      <button class="btn ghost" id="browseWavBtn" hidden>Escolher arquivo</button>
+      <p class="mono" id="wavFileName" style="margin-top:14px"></p>
+      <ul class="report" id="wavReport"></ul>
+    </section>
+  </main>
+
+  <section class="privacy-note" aria-label="Privacidade">
+    <svg class="lock" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="4" y="10" width="16" height="11" rx="2.5" stroke="currentColor" stroke-width="1.8"/>
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8"/>
+      <circle cx="12" cy="15.5" r="1.6" fill="currentColor"/>
+    </svg>
+    <p><strong>100% local.</strong> Nada é enviado a nenhum servidor — a conversão inteira acontece dentro do seu navegador, usando o processador do seu próprio dispositivo. Depois que o motor de conversão carrega, você pode até desligar a internet e continuar convertendo. Sem cadastro, sem upload, sem rastreamento.</p>
+  </section>
+
+  <footer>
+    <p>Créditos: guia revisado com a ajuda de <a href="https://www.imdb.com/pt/name/nm10246068/" rel="noopener" target="_blank">Eduardo Pires de Vasconcelos</a>, montador, finalizador e coordenador de pós-produção, que apontou detalhes técnicos de preparo de vídeo (como remoção de chroma key e exportação) importantes para quem trabalha profissionalmente com pós-produção.</p>
+    <p>Parâmetros idênticos ao <code>pyBRAS_conversor_libras_wav.py</code>: VP9 · 480×640 · 24 fps · bitrate travado em 576.000 bps · blocos de 2 s / 288.000 bytes · PCM 48 kHz / 24-bit / mono.</p>
+    <p>Norma: <a href="https://github.com/ISDCF/Sign-Language-Video-Encoding" rel="noopener" target="_blank">ISDCF Doc13 — Sign Language Video Encoding for Digital Cinema</a>. Licença MIT.</p>
+    <p>Como conferir que é local mesmo: abra as ferramentas de desenvolvedor do navegador na aba "Rede" durante uma conversão — nenhum dado do vídeo é transmitido.</p>
+  </footer>
+
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================================
+   Conversor Libras → WAV (Canal 15 de DCP) — 100% no navegador
+   Porta fiel do pyBRAS_conversor_libras_wav.py (ISDCF Doc13)
+   ========================================================================= */
+
+/* --- Constantes da norma (idênticas ao script Python) -------------------- */
+const MARKER = 0xFFFFFFFF;
+const SAMPLE_RATE = 48000;
+const BITS_PER_SAMPLE = 24;
+const CHANNELS = 1;
+const BLOCK_HEADER_LEN = 20;
+const FORCED_FPS = 24;
+const FORCED_W = 480;
+const FORCED_H = 640;
+const VIDEO_BITRATE = (SAMPLE_RATE * BITS_PER_SAMPLE) / 2; // 576.000 bps
+const CHUNK_SECONDS = 2.0;
+const CHUNK_FRAMES = Math.round(CHUNK_SECONDS * FORCED_FPS); // 48
+const BYTES_PER_SECOND = (SAMPLE_RATE * BITS_PER_SAMPLE) / 8 * CHANNELS;
+const BLOCK_LEN = Math.round(BYTES_PER_SECOND * CHUNK_SECONDS); // 288.000
+const MIN_FRAME_COVERAGE = 0.70;
+const WAVE_FORMAT_PCM = 1;
+const WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
+
+const FFMPEG_VERSION = '0.12.10';
+const UTIL_VERSION = '0.12.1';
+const CORE_VERSION = '0.12.6';
+const CDNS = ['https://unpkg.com', 'https://cdn.jsdelivr.net/npm'];
+
+/* --- Atalhos de DOM ------------------------------------------------------- */
+const $ = (id) => document.getElementById(id);
+const els = {};
+[
+  'modeConvert', 'modeCheck', 'panelConvert', 'panelCheck',
+  'drop', 'fileInput', 'browseBtn',
+  'stepPreview', 'prevCanvas', 'metaInfo', 'warnBox', 'warnText',
+  'stepConvert', 'btnConvert', 'btnReset',
+  'progressWrap', 'strip', 'stripFill', 'stripCaption', 'statusLine',
+  'resultBox', 'dlLink', 'valReport', 'resultSummary',
+  'errBox', 'errText', 'logDetails', 'logPre',
+  'dropW', 'wavInput', 'browseWavBtn', 'wavReport', 'wavFileName',
+  'engineNote',
+].forEach((id) => { els[id] = $(id); });
+
+let currentFile = null;
+let currentMeta = null;   // { w, h, duration, previewOk }
+let busy = false;
+let enginePromise = null;
+let lastLogs = [];
+
+/* =========================================================================
+   Utilidades
+   ========================================================================= */
+function fmtMB(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1).replace('.', ',') + ' MB';
+}
+function fmtDur(secs) {
+  if (!isFinite(secs) || secs <= 0) return 'desconhecida';
+  const m = Math.floor(secs / 60);
+  const s = Math.round(secs % 60);
+  return m > 0 ? `${m} min ${s} s` : `${s} s`;
+}
+function pct(x) { return Math.round(x * 100) + '%'; }
+
+function letterboxCoverage(srcW, srcH) {
+  if (srcW <= 0 || srcH <= 0) return 1.0; // geometria desconhecida: não bloquear
+  const scale = Math.min(FORCED_W / srcW, FORCED_H / srcH);
+  return (srcW * scale * srcH * scale) / (FORCED_W * FORCED_H);
+}
+
+function setStatus(text) {
+  els.statusLine.textContent = text;
+}
+
+function showError(message) {
+  els.errText.textContent = message;
+  els.errBox.hidden = false;
+  if (lastLogs.length > 0) {
+    els.logPre.textContent = lastLogs.join('\n');
+    els.logDetails.hidden = false;
+  } else {
+    els.logDetails.hidden = true;
+  }
+}
+
+function clearError() {
+  els.errBox.hidden = true;
+  els.logDetails.hidden = true;
+}
+
+/* =========================================================================
+   Carregamento do motor (ffmpeg.wasm)
+   ========================================================================= */
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.crossOrigin = 'anonymous';
+    s.src = src;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('falha ao carregar ' + src));
+    document.head.appendChild(s);
+  });
+}
+
+async function loadEngineFrom(cdn, onStatus) {
+  const mt = self.crossOriginIsolated === true;
+  onStatus('Baixando o motor de conversão (~32 MB — só na primeira vez, depois fica em cache)…');
+
+  if (!window.FFmpegWASM) {
+    await loadScript(`${cdn}/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/umd/ffmpeg.js`);
+  }
+  if (!window.FFmpegUtil) {
+    await loadScript(`${cdn}/@ffmpeg/util@${UTIL_VERSION}/dist/umd/index.js`);
+  }
+  const { FFmpeg } = window.FFmpegWASM;
+  const { toBlobURL } = window.FFmpegUtil;
+
+  const corePkg = mt ? 'core-mt' : 'core';
+  const coreBase = `${cdn}/@ffmpeg/${corePkg}@${CORE_VERSION}/dist/umd`;
+
+  const ffmpeg = new FFmpeg();
+  const cfg = {
+    coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
+    classWorkerURL: await toBlobURL(
+      `${cdn}/@ffmpeg/ffmpeg@${FFMPEG_VERSION}/dist/umd/814.ffmpeg.js`,
+      'text/javascript'
+    ),
+  };
+  if (mt) {
+    cfg.workerURL = await toBlobURL(`${coreBase}/ffmpeg-core.worker.js`, 'text/javascript');
+  }
+  onStatus('Iniciando o motor de conversão…');
+  await ffmpeg.load(cfg);
+  return { ffmpeg, mt };
+}
+
+function getEngine(onStatus) {
+  if (!enginePromise) {
+    enginePromise = (async () => {
+      let lastErr = null;
+      for (const cdn of CDNS) {
+        try {
+          return await loadEngineFrom(cdn, onStatus);
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw new Error(
+        'Não foi possível baixar o motor de conversão. Verifique sua conexão com a internet ' +
+        'e recarregue a página. Detalhe técnico: ' + (lastErr && lastErr.message ? lastErr.message : lastErr)
+      );
+    })().catch((e) => { enginePromise = null; throw e; });
+  }
+  return enginePromise;
+}
+
+/* =========================================================================
+   Análise do vídeo no próprio navegador (equivale ao ffprobe + --preview)
+   ========================================================================= */
+function analyzeFile(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.muted = true;
+    video.playsInline = true;
+
+    const done = (meta) => {
+      URL.revokeObjectURL(url);
+      video.removeAttribute('src');
+      video.load();
+      resolve(meta);
+    };
+    const timer = setTimeout(() => done({ w: 0, h: 0, duration: 0, previewOk: false }), 8000);
+
+    video.onerror = () => { clearTimeout(timer); done({ w: 0, h: 0, duration: 0, previewOk: false }); };
+    video.onloadedmetadata = () => {
+      const w = video.videoWidth || 0;
+      const h = video.videoHeight || 0;
+      const duration = isFinite(video.duration) ? video.duration : 0;
+      const finish = () => { clearTimeout(timer); done({ w, h, duration, previewOk: w > 0 && h > 0 }); };
+      // Busca um frame representativo e desenha o preview com o mesmo letterbox do encode
+      const t = Math.min(1, duration > 0 ? duration / 2 : 0);
+      video.onseeked = () => { drawPreview(video, w, h); finish(); };
+      try {
+        video.currentTime = t;
+      } catch (e) {
+        finish();
+      }
+      // Alguns contêineres não disparam onseeked; garante a saída
+      setTimeout(() => { drawPreview(video, w, h); finish(); }, 3000);
+    };
+    video.src = url;
+  });
+}
+
+let previewDrawn = false;
+function drawPreview(video, srcW, srcH) {
+  if (previewDrawn) return;
+  const c = els.prevCanvas;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, FORCED_W, FORCED_H);
+  if (srcW > 0 && srcH > 0) {
+    const scale = Math.min(FORCED_W / srcW, FORCED_H / srcH);
+    const dw = Math.round(srcW * scale);
+    const dh = Math.round(srcH * scale);
+    const dx = Math.round((FORCED_W - dw) / 2);
+    const dy = Math.round((FORCED_H - dh) / 2);
+    try { ctx.drawImage(video, dx, dy, dw, dh); previewDrawn = true; } catch (e) { /* frame indisponível */ }
+  }
+}
+
+/* =========================================================================
+   Empacotamento dos blocos PCM (porta de build_pcm_blocks)
+   ========================================================================= */
+function buildPcmBlocks(ebmlHeader, segments, onBlock) {
+  const le = ebmlHeader.length;
+  const total = segments.length * BLOCK_LEN;
+  const out = new Uint8Array(total);
+  const dv = new DataView(out.buffer);
+  let off = 0;
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const lv = seg.length;
+    if (BLOCK_HEADER_LEN + le + lv > BLOCK_LEN) {
+      throw new Error(
+        `O segmento VP9 nº ${i + 1} (${lv} bytes) mais o cabeçalho EBML (${le} bytes) ` +
+        `não cabe no bloco de ${BLOCK_LEN} bytes. Isso não deveria acontecer com o bitrate travado — ` +
+        `tente novamente ou reporte o problema.`
+      );
+    }
+    dv.setUint32(off, MARKER, false);
+    dv.setUint32(off + 4, lv, false);
+    dv.setUint32(off + 8, BLOCK_LEN, false);
+    dv.setUint32(off + 12, le, false);
+    dv.setUint32(off + 16, MARKER, false);
+    out.set(ebmlHeader, off + BLOCK_HEADER_LEN);
+    out.set(seg, off + BLOCK_HEADER_LEN + le);
+    // o restante já é zero (padding)
+    off += BLOCK_LEN;
+    if (onBlock) onBlock(i + 1, segments.length);
+  }
+  return out;
+}
+
+/* --- Cabeçalho WAV (equivale ao wrap_as_wav, sem re-encode) --------------- */
+function wrapAsWav(pcm) {
+  const header = new ArrayBuffer(44);
+  const dv = new DataView(header);
+  const writeStr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+  const byteRate = SAMPLE_RATE * CHANNELS * (BITS_PER_SAMPLE / 8);
+  const blockAlign = CHANNELS * (BITS_PER_SAMPLE / 8);
+  writeStr(0, 'RIFF');
+  dv.setUint32(4, 36 + pcm.length, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  dv.setUint32(16, 16, true);
+  dv.setUint16(20, WAVE_FORMAT_PCM, true);
+  dv.setUint16(22, CHANNELS, true);
+  dv.setUint32(24, SAMPLE_RATE, true);
+  dv.setUint32(28, byteRate, true);
+  dv.setUint16(32, blockAlign, true);
+  dv.setUint16(34, BITS_PER_SAMPLE, true);
+  writeStr(36, 'data');
+  dv.setUint32(40, pcm.length, true);
+  const wav = new Uint8Array(44 + pcm.length);
+  wav.set(new Uint8Array(header), 0);
+  wav.set(pcm, 44);
+  return wav;
+}
+
+/* =========================================================================
+   Validador (porta de validate_wav / read_riff_chunks)
+   ========================================================================= */
+function readRiffChunks(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (o) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+  if (bytes.length < 12 || tag(0) !== 'RIFF' || tag(8) !== 'WAVE') {
+    throw new Error('não é um arquivo RIFF/WAVE válido');
+  }
+  const chunks = [];
+  let pos = 12;
+  while (pos + 8 <= bytes.length) {
+    const id = tag(pos);
+    const size = dv.getUint32(pos + 4, true);
+    chunks.push({ id, dataOffset: pos + 8, size });
+    pos += 8 + size + (size & 1); // alinhamento de palavra do RIFF
+  }
+  return chunks;
+}
+
+function validateWav(bytes, chunkDuration) {
+  const details = [];
+  const fail = (msg) => { details.push({ ok: false, msg }); return { ok: false, details, summary: 'FALHOU: ' + msg }; };
+  const pass = (msg) => details.push({ ok: true, msg });
+
+  let chunks;
+  try {
+    chunks = readRiffChunks(bytes);
+  } catch (e) {
+    return fail(e.message);
+  }
+  pass('Contêiner RIFF/WAVE válido');
+
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const fmt = chunks.find((c) => c.id === 'fmt ');
+  const dataChunk = chunks.find((c) => c.id === 'data');
+  if (!fmt) return fail("nenhum bloco 'fmt ' encontrado");
+  if (!dataChunk) return fail("nenhum bloco 'data' encontrado");
+  if (fmt.size < 16) return fail(`o bloco 'fmt ' tem apenas ${fmt.size} bytes, esperado no mínimo 16`);
+
+  const audioFormat = dv.getUint16(fmt.dataOffset, true);
+  const channels = dv.getUint16(fmt.dataOffset + 2, true);
+  const sampleRate = dv.getUint32(fmt.dataOffset + 4, true);
+  const bits = dv.getUint16(fmt.dataOffset + 14, true);
+
+  if (audioFormat !== WAVE_FORMAT_PCM && audioFormat !== WAVE_FORMAT_EXTENSIBLE) {
+    return fail(`código de formato de áudio é 0x${audioFormat.toString(16).toUpperCase()}, esperado PCM (1) ou EXTENSIBLE (0xFFFE)`);
+  }
+  if (sampleRate !== SAMPLE_RATE || bits !== BITS_PER_SAMPLE || channels !== CHANNELS) {
+    return fail(
+      `formato é ${sampleRate} Hz / ${bits}-bit / ${channels} canal(is), ` +
+      `esperado ${SAMPLE_RATE} Hz / ${BITS_PER_SAMPLE}-bit / ${CHANNELS} canal(is)`
+    );
+  }
+  pass(`PCM ${SAMPLE_RATE.toLocaleString('pt-BR')} Hz / ${BITS_PER_SAMPLE}-bit / mono, como exige a norma`);
+
+  const available = bytes.length - dataChunk.dataOffset;
+  const dataSize = Math.min(dataChunk.size, available);
+  const blockLen = Math.round(BYTES_PER_SECOND * chunkDuration);
+
+  if (dataSize % blockLen !== 0) {
+    return fail(
+      `os dados PCM (${dataSize.toLocaleString('pt-BR')} bytes) não formam um número inteiro de ` +
+      `blocos de ${blockLen.toLocaleString('pt-BR')} bytes (resto de ${(dataSize % blockLen).toLocaleString('pt-BR')})`
+    );
+  }
+  const numBlocks = dataSize / blockLen;
+  if (numBlocks === 0) return fail('nenhum bloco PCM encontrado');
+  pass(`${numBlocks} bloco(s) completo(s) de ${blockLen.toLocaleString('pt-BR')} bytes (~${(numBlocks * chunkDuration).toLocaleString('pt-BR')} s de vídeo)`);
+
+  for (let i = 0; i < numBlocks; i++) {
+    const off = dataChunk.dataOffset + i * blockLen;
+    const h1 = dv.getUint32(off, false);
+    const lv = dv.getUint32(off + 4, false);
+    const lb = dv.getUint32(off + 8, false);
+    const le = dv.getUint32(off + 12, false);
+    const h2 = dv.getUint32(off + 16, false);
+    if (h1 !== MARKER || h2 !== MARKER) return fail(`bloco ${i}: marcador(es) 0xFFFFFFFF ausente(s)`);
+    if (lb !== blockLen) return fail(`bloco ${i}: Lb=${lb}, esperado ${blockLen}`);
+    if (BLOCK_HEADER_LEN + le + lv > lb) return fail(`bloco ${i}: Le+Lv+20 (${BLOCK_HEADER_LEN + le + lv}) excede Lb (${lb})`);
+  }
+  pass('Todos os blocos têm marcadores 0xFFFFFFFF e campos Lb/Le/Lv consistentes');
+
+  return {
+    ok: true,
+    details,
+    numBlocks,
+    summary:
+      `OK: ${numBlocks} bloco(s) de ${blockLen.toLocaleString('pt-BR')} bytes, ` +
+      `~${(numBlocks * chunkDuration).toLocaleString('pt-BR')} s de vídeo, ` +
+      `${SAMPLE_RATE.toLocaleString('pt-BR')} Hz / ${BITS_PER_SAMPLE}-bit / mono PCM`,
+  };
+}
+
+function renderReport(container, result) {
+  container.innerHTML = '';
+  for (const d of result.details) {
+    const li = document.createElement('li');
+    li.className = d.ok ? 'ok' : 'bad';
+    li.textContent = (d.ok ? '✓ ' : '✕ ') + d.msg;
+    container.appendChild(li);
+  }
+}
+
+/* =========================================================================
+   Faixa de blocos (assinatura visual do progresso)
+   ========================================================================= */
+function setupStrip(numBlocks) {
+  const n = Math.max(1, numBlocks || 1);
+  const cell = 100 / n;
+  if (n <= 200) {
+    els.strip.style.backgroundImage =
+      `repeating-linear-gradient(90deg, transparent 0, transparent calc(${cell}% - 1px), ` +
+      `rgba(233,236,241,0.18) calc(${cell}% - 1px), rgba(233,236,241,0.18) ${cell}%)`;
+  } else {
+    els.strip.style.backgroundImage = 'none';
+  }
+  els.stripFill.style.width = '0%';
+}
+
+function setStrip(fraction, caption) {
+  const f = Math.max(0, Math.min(1, fraction));
+  els.stripFill.style.width = (f * 100).toFixed(1) + '%';
+  if (caption) els.stripCaption.textContent = caption;
+}
+
+/* =========================================================================
+   Fluxo de conversão
+   ========================================================================= */
+async function convert() {
+  if (!currentFile || busy) return;
+  busy = true;
+  clearError();
+  lastLogs = [];
+  els.btnConvert.disabled = true;
+  els.resultBox.hidden = true;
+  els.progressWrap.hidden = false;
+
+  const estBlocks = currentMeta && currentMeta.duration > 0
+    ? Math.ceil(currentMeta.duration / CHUNK_SECONDS)
+    : 0;
+  setupStrip(estBlocks);
+  setStrip(0, estBlocks > 0 ? `0 de ~${estBlocks} blocos` : 'preparando…');
+
+  try {
+    const { ffmpeg, mt } = await getEngine(setStatus);
+    const { fetchFile } = window.FFmpegUtil;
+
+    const logHandler = ({ message }) => {
+      lastLogs.push(message);
+      if (lastLogs.length > 60) lastLogs.shift();
+    };
+    const progressHandler = ({ progress }) => {
+      const p = Math.max(0, Math.min(1, progress || 0));
+      // codificação = 0–88% da barra
+      setStrip(p * 0.88, `codificando VP9 · ${pct(p)}${estBlocks ? ` · ~${Math.min(estBlocks, Math.floor(p * estBlocks))} de ${estBlocks} blocos` : ''}`);
+    };
+    ffmpeg.on('log', logHandler);
+    ffmpeg.on('progress', progressHandler);
+
+    setStatus(`Codificando o vídeo em VP9 (${FORCED_FPS} fps, ${FORCED_W}×${FORCED_H}, bitrate travado em ${VIDEO_BITRATE.toLocaleString('pt-BR')} bps)…` + (mt ? ' Usando vários núcleos do processador.' : ''));
+
+    const extMatch = currentFile.name.match(/\.([A-Za-z0-9]+)$/);
+    const inputName = 'entrada.' + (extMatch ? extMatch[1].toLowerCase() : 'mp4');
+    await ffmpeg.writeFile(inputName, await fetchFile(currentFile));
+
+    const vf =
+      `fps=${FORCED_FPS},` +
+      `scale=${FORCED_W}:${FORCED_H}:force_original_aspect_ratio=decrease:flags=lanczos,` +
+      `pad=${FORCED_W}:${FORCED_H}:(ow-iw)/2:(oh-ih)/2:color=black,` +
+      `setsar=1`;
+
+    const args = [
+      '-hide_banner', '-y',
+      '-i', inputName,
+      '-map', '0:v:0',
+      '-vf', vf,
+      '-pix_fmt', 'yuv420p',
+      '-c:v', 'libvpx-vp9',
+      '-keyint_min', String(CHUNK_FRAMES), '-g', String(CHUNK_FRAMES),
+      '-speed', '8', '-row-mt', '1',
+      '-tile-columns', '4', '-frame-parallel', '1',
+      '-threads', mt ? '4' : '1',
+      '-static-thresh', '0', '-max-intra-rate', '300', '-deadline', 'realtime',
+      '-lag-in-frames', '0', '-error-resilient', '1',
+      '-b:v', String(VIDEO_BITRATE),
+      '-minrate', String(VIDEO_BITRATE),
+      '-maxrate', String(VIDEO_BITRATE),
+      '-an', '-sn',
+      '-f', 'webm_chunk',
+      '-header', 'chunk.hdr',
+      '-chunk_start_index', '1',
+      'chunk_%05d.chk',
+    ];
+
+    const code = await ffmpeg.exec(args);
+    ffmpeg.off('log', logHandler);
+    ffmpeg.off('progress', progressHandler);
+
+    if (code !== 0) {
+      throw new Error('O ffmpeg terminou com erro (código ' + code + '). Confira o registro técnico abaixo — o arquivo pode não conter uma trilha de vídeo válida ou usar um codec não suportado.');
+    }
+
+    setStatus('Empacotando os segmentos VP9 nos blocos PCM…');
+
+    let dirList;
+    try { dirList = await ffmpeg.listDir('/'); } catch (e) { dirList = []; }
+    const chunkNames = dirList
+      .map((f) => f.name)
+      .filter((n) => /^chunk_\d{5}\.chk$/.test(n))
+      .sort();
+    if (chunkNames.length === 0) {
+      throw new Error('Nenhum segmento VP9 foi gerado. O vídeo pode ser curto demais (mínimo de ' + CHUNK_SECONDS + ' s) ou não conter trilha de vídeo.');
+    }
+
+    const ebmlHeader = await ffmpeg.readFile('chunk.hdr');
+    const segments = [];
+    for (const name of chunkNames) {
+      segments.push(await ffmpeg.readFile(name));
+      try { await ffmpeg.deleteFile(name); } catch (e) { /* limpeza opcional */ }
+    }
+    try { await ffmpeg.deleteFile('chunk.hdr'); } catch (e) { /* limpeza opcional */ }
+    try { await ffmpeg.deleteFile(inputName); } catch (e) { /* limpeza opcional */ }
+
+    setupStrip(segments.length);
+    const pcm = buildPcmBlocks(ebmlHeader, segments, (i, n) => {
+      if (i % 5 === 0 || i === n) {
+        setStrip(0.88 + 0.10 * (i / n), `empacotando bloco ${i} de ${n} · ${BLOCK_LEN.toLocaleString('pt-BR')} bytes/bloco`);
+      }
+    });
+
+    const wav = wrapAsWav(pcm);
+
+    setStatus('Validando o arquivo gerado (autoverificação da norma)…');
+    const result = validateWav(wav, CHUNK_SECONDS);
+    setStrip(1, `${segments.length} blocos · ${BLOCK_LEN.toLocaleString('pt-BR')} bytes/bloco`);
+
+    const outName = currentFile.name.replace(/\.[^.]+$/, '') + '.wav';
+    const blob = new Blob([wav], { type: 'audio/wav' });
+    els.dlLink.href = URL.createObjectURL(blob);
+    els.dlLink.download = outName;
+    els.dlLink.textContent = 'Baixar ' + outName + ' (' + fmtMB(wav.length) + ')';
+
+    renderReport(els.valReport, result);
+    els.resultSummary.textContent = result.ok
+      ? result.summary + '. Entregue este arquivo para quem monta o DCP usar no canal 15 de áudio.'
+      : result.summary;
+    els.resultBox.hidden = false;
+    setStatus(result.ok ? 'Conversão concluída.' : 'Conversão concluída, mas a autoverificação encontrou um problema.');
+  } catch (e) {
+    setStatus('A conversão falhou.');
+    showError(e && e.message ? e.message : String(e));
+  } finally {
+    busy = false;
+    els.btnConvert.disabled = false;
+  }
+}
+
+/* =========================================================================
+   Seleção de arquivo e aviso de letterbox
+   ========================================================================= */
+async function handleFile(file) {
+  if (busy) return;
+  clearError();
+  els.resultBox.hidden = true;
+  els.progressWrap.hidden = true;
+  els.warnBox.hidden = true;
+
+  if (file.size > 2 * 1024 * 1024 * 1024) {
+    showError(
+      'Este arquivo tem ' + fmtMB(file.size) + ' e ultrapassa o limite de memória do navegador (~2 GB). ' +
+      'Reexporte o vídeo em H.264 a 1 Mbps (Etapa 0 do guia) e tente de novo.'
+    );
+    return;
+  }
+
+  currentFile = file;
+  previewDrawn = false;
+  setStatus('Analisando o vídeo…');
+  currentMeta = await analyzeFile(file);
+  const m = currentMeta;
+
+  const lines = [];
+  lines.push(file.name + ' · ' + fmtMB(file.size));
+  if (m.previewOk) {
+    const cov = letterboxCoverage(m.w, m.h);
+    lines.push(`origem: ${m.w}×${m.h} · duração: ${fmtDur(m.duration)}`);
+    lines.push(`cobertura do quadro ${FORCED_W}×${FORCED_H} após o ajuste: ${pct(cov)}`);
+    if (m.duration > 0 && m.duration < CHUNK_SECONDS) {
+      els.metaInfo.textContent = lines.join('\n');
+      els.stepPreview.hidden = false;
+      showError(`O vídeo tem ${m.duration.toFixed(2).replace('.', ',')} s, menos que um bloco de ${CHUNK_SECONDS} s. É necessário pelo menos ${CHUNK_SECONDS} s para converter.`);
+      els.stepConvert.hidden = true;
+      return;
+    }
+    if (cov < MIN_FRAME_COVERAGE) {
+      const scale = Math.min(FORCED_W / m.w, FORCED_H / m.h);
+      els.warnText.textContent =
+        `A origem é ${m.w}×${m.h}. Para caber no quadro retrato de ${FORCED_W}×${FORCED_H} sem distorcer, ` +
+        `a imagem será reduzida para ${Math.round(m.w * scale)}×${Math.round(m.h * scale)} e receberá tarjas pretas, ` +
+        `cobrindo só ${pct(cov)} do quadro. O(a) intérprete pode ficar pequeno(a) e difícil de ver. ` +
+        `O ideal é recortar o vídeo para uma proporção próxima de 3:4 (retrato) antes de converter — ` +
+        `veja o preview ao lado para decidir.`;
+      els.warnBox.hidden = false;
+      els.btnConvert.textContent = 'Converter mesmo assim, com tarjas pretas';
+      els.btnConvert.classList.add('warnBtn');
+    } else {
+      els.btnConvert.textContent = 'Converter para .wav';
+      els.btnConvert.classList.remove('warnBtn');
+    }
+  } else {
+    lines.push('O navegador não conseguiu pré-visualizar este formato — sem problema: a conversão ainda funciona, só não dá para conferir o enquadramento antes.');
+    els.btnConvert.textContent = 'Converter para .wav';
+    els.btnConvert.classList.remove('warnBtn');
+    const ctx = els.prevCanvas.getContext('2d');
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, FORCED_W, FORCED_H);
+  }
+  els.metaInfo.textContent = lines.join('\n');
+  els.stepPreview.hidden = false;
+  els.stepConvert.hidden = false;
+  setStatus('');
+  // Começa a baixar o motor em segundo plano enquanto a pessoa confere o preview
+  getEngine((t) => { els.engineNote.textContent = t; })
+    .then(() => { els.engineNote.textContent = 'Motor de conversão pronto — a partir daqui, tudo funciona até sem internet.'; })
+    .catch(() => { els.engineNote.textContent = ''; });
+}
+
+function resetAll() {
+  currentFile = null;
+  currentMeta = null;
+  els.stepPreview.hidden = true;
+  els.stepConvert.hidden = true;
+  els.progressWrap.hidden = true;
+  els.resultBox.hidden = true;
+  els.warnBox.hidden = true;
+  clearError();
+  setStatus('');
+  els.fileInput.value = '';
+}
+
+/* =========================================================================
+   Verificador de .wav pronto
+   ========================================================================= */
+async function handleWav(file) {
+  els.wavFileName.textContent = file.name + ' · ' + fmtMB(file.size);
+  els.wavReport.innerHTML = '<li>Verificando…</li>';
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const result = validateWav(bytes, CHUNK_SECONDS);
+    renderReport(els.wavReport, result);
+    const li = document.createElement('li');
+    li.className = result.ok ? 'ok summary' : 'bad summary';
+    li.textContent = result.summary;
+    els.wavReport.appendChild(li);
+  } catch (e) {
+    els.wavReport.innerHTML = '';
+    const li = document.createElement('li');
+    li.className = 'bad';
+    li.textContent = '✕ Não foi possível ler o arquivo: ' + (e && e.message ? e.message : e);
+    els.wavReport.appendChild(li);
+  }
+}
+
+/* =========================================================================
+   Ligações de interface
+   ========================================================================= */
+function wireDropzone(zone, input, onFile) {
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+  });
+  input.addEventListener('change', () => {
+    if (input.files && input.files[0]) onFile(input.files[0]);
+  });
+  ['dragenter', 'dragover'].forEach((ev) =>
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('over'); })
+  );
+  ['dragleave', 'drop'].forEach((ev) =>
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('over'); })
+  );
+  zone.addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+      onFile(e.dataTransfer.files[0]);
+    }
+  });
+}
+
+function setMode(check) {
+  els.panelConvert.hidden = check;
+  els.panelCheck.hidden = !check;
+  els.modeConvert.setAttribute('aria-pressed', String(!check));
+  els.modeCheck.setAttribute('aria-pressed', String(check));
+}
+
+function init() {
+  wireDropzone(els.drop, els.fileInput, handleFile);
+  wireDropzone(els.dropW, els.wavInput, handleWav);
+  els.btnConvert.addEventListener('click', convert);
+  els.btnReset.addEventListener('click', resetAll);
+  els.modeConvert.addEventListener('click', () => setMode(false));
+  els.modeCheck.addEventListener('click', () => setMode(true));
+
+  // Multithread opcional: se existir um coi-serviceworker.js ao lado do index.html,
+  // registra e recarrega uma vez para habilitar SharedArrayBuffer (conversão bem mais rápida).
+  if ('serviceWorker' in navigator && !self.crossOriginIsolated && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('./coi-serviceworker.js').then(() => {
+      if (!navigator.serviceWorker.controller && !sessionStorage.getItem('coiReloaded')) {
+        sessionStorage.setItem('coiReloaded', '1');
+        navigator.serviceWorker.ready.then(() => location.reload());
+      }
+    }).catch(() => { /* arquivo opcional ausente: segue em modo de núcleo único */ });
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>
