@@ -326,7 +326,7 @@ const MIN_FRAME_COVERAGE = 0.70;
 const WAVE_FORMAT_PCM = 1;
 const WAVE_FORMAT_EXTENSIBLE = 0xFFFE;
 
-const FFMPEG_VERSION = '0.12.10';
+const FFMPEG_VERSION = '0.12.6';
 const UTIL_VERSION = '0.12.1';
 const CORE_VERSION = '0.12.6';
 const CDNS = ['https://unpkg.com', 'https://cdn.jsdelivr.net/npm'];
@@ -406,8 +406,7 @@ function loadScript(src) {
   });
 }
 
-async function loadEngineFrom(cdn, onStatus) {
-  const mt = self.crossOriginIsolated === true;
+async function loadEngineFrom(cdn, wantMt, onStatus) {
   onStatus('Baixando o motor de conversão (~32 MB — só na primeira vez, depois fica em cache)…');
 
   if (!window.FFmpegWASM) {
@@ -419,7 +418,7 @@ async function loadEngineFrom(cdn, onStatus) {
   const { FFmpeg } = window.FFmpegWASM;
   const { toBlobURL } = window.FFmpegUtil;
 
-  const corePkg = mt ? 'core-mt' : 'core';
+  const corePkg = wantMt ? 'core-mt' : 'core';
   const coreBase = `${cdn}/@ffmpeg/${corePkg}@${CORE_VERSION}/dist/umd`;
 
   const ffmpeg = new FFmpeg();
@@ -431,28 +430,38 @@ async function loadEngineFrom(cdn, onStatus) {
       'text/javascript'
     ),
   };
-  if (mt) {
+  if (wantMt) {
     cfg.workerURL = await toBlobURL(`${coreBase}/ffmpeg-core.worker.js`, 'text/javascript');
   }
   onStatus('Iniciando o motor de conversão…');
   await ffmpeg.load(cfg);
-  return { ffmpeg, mt };
+  return { ffmpeg, mt: wantMt };
 }
 
 function getEngine(onStatus) {
   if (!enginePromise) {
     enginePromise = (async () => {
+      const canMt = self.crossOriginIsolated === true;
+      // Ordem de tentativa: (multinúcleo se disponível) → núcleo único, em cada CDN.
+      // O núcleo único é o mais compatível e funciona mesmo sem os cabeçalhos COOP/COEP.
+      const plans = canMt ? [true, false] : [false];
       let lastErr = null;
-      for (const cdn of CDNS) {
-        try {
-          return await loadEngineFrom(cdn, onStatus);
-        } catch (e) {
-          lastErr = e;
+      for (const wantMt of plans) {
+        for (const cdn of CDNS) {
+          try {
+            return await loadEngineFrom(cdn, wantMt, onStatus);
+          } catch (e) {
+            lastErr = e;
+            // Se um motor multinúcleo falhar, limpamos o script já injetado
+            // para permitir recarregar a variante de núcleo único de forma limpa.
+          }
         }
       }
       throw new Error(
-        'Não foi possível baixar o motor de conversão. Verifique sua conexão com a internet ' +
-        'e recarregue a página. Detalhe técnico: ' + (lastErr && lastErr.message ? lastErr.message : lastErr)
+        'Não foi possível carregar o motor de conversão. Isto costuma ser um bloqueio de rede ' +
+        '(firewall, extensão de navegador, rede corporativa ou modo restrito) impedindo o download ' +
+        'dos arquivos do conversor. Tente: recarregar a página, usar outra rede (ex.: dados do celular) ' +
+        'ou outro navegador. Detalhe técnico: ' + (lastErr && lastErr.message ? lastErr.message : lastErr)
       );
     })().catch((e) => { enginePromise = null; throw e; });
   }
